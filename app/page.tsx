@@ -17,8 +17,14 @@ export default function Home() {
   const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
   const [currentSearchId, setCurrentSearchId] = useState<string | null>(null);
   const [chatInput, setChatInput] = useState("");
-  const [loading, setLoading] = useState<"idle" | "search" | "summarize" | "chat">("idle");
+  const [loading, setLoading] = useState<"idle" | "search" | "summarize" | "chat" | "email">("idle");
   const [error, setError] = useState("");
+  
+  // 이메일 전송 모달 상태
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [userName, setUserName] = useState("");
+  const [userPhone, setUserPhone] = useState("");
+  const [userEmail, setUserEmail] = useState("");
 
   // 현재 선택된 검색 가져오기
   const currentSearch = searchHistory.find((s) => s.id === currentSearchId);
@@ -139,22 +145,47 @@ export default function Home() {
 
   const shareViaEmail = useCallback(() => {
     if (!currentSearch) return;
-    
-    const recipientEmail = "liszzmword@gmail.com";
-    const subject = encodeURIComponent(`[뉴스 요약] ${currentSearch.keyword}`);
-    const newsLinks = currentSearch.news
-      .map((n, i) => `${i + 1}. ${n.title}\n   ${n.link}`)
-      .join("\n\n");
-    
-    const body = encodeURIComponent(
-      `키워드: ${currentSearch.keyword}\n\n` +
-      `=== AI 요약 ===\n${currentSearch.summary}\n\n` +
-      `=== 뉴스 목록 (${currentSearch.news.length}건) ===\n${newsLinks}\n\n` +
-      `---\n뉴스 챗봇으로 생성됨`
-    );
-    
-    window.location.href = `mailto:${recipientEmail}?subject=${subject}&body=${body}`;
+    setShowEmailModal(true);
   }, [currentSearch]);
+
+  const sendEmail = useCallback(async () => {
+    if (!currentSearch) return;
+    if (!userName.trim() || !userPhone.trim() || !userEmail.trim()) {
+      setError("이름, 전화번호, 이메일을 모두 입력해주세요.");
+      return;
+    }
+
+    setError("");
+    setLoading("email");
+
+    try {
+      const res = await fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userName: userName.trim(),
+          userPhone: userPhone.trim(),
+          userEmail: userEmail.trim(),
+          keyword: currentSearch.keyword,
+          summary: currentSearch.summary,
+          news: currentSearch.news,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "이메일 전송 실패");
+
+      alert("이메일이 성공적으로 전송되었습니다!");
+      setShowEmailModal(false);
+      setUserName("");
+      setUserPhone("");
+      setUserEmail("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "이메일 전송 오류");
+    } finally {
+      setLoading("idle");
+    }
+  }, [currentSearch, userName, userPhone, userEmail]);
 
   const copyToClipboard = useCallback(async () => {
     if (!currentSearch) return;
@@ -334,6 +365,81 @@ export default function Home() {
       <footer className="footer">
         <p>Google News RSS + Gemini API · API 키는 서버 환경변수로만 사용됩니다.</p>
       </footer>
+
+      {/* 이메일 전송 모달 */}
+      {showEmailModal && (
+        <div className="modalOverlay" onClick={() => setShowEmailModal(false)}>
+          <div className="modalContent" onClick={(e) => e.stopPropagation()}>
+            <div className="modalHeader">
+              <h3>📧 이메일로 전송</h3>
+              <button
+                className="modalClose"
+                onClick={() => setShowEmailModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="modalBody">
+              <p className="modalDescription">
+                요약 내용을 이메일로 받으시려면 정보를 입력해주세요.
+              </p>
+              <div className="formGroup">
+                <label htmlFor="userName">이름 *</label>
+                <input
+                  id="userName"
+                  type="text"
+                  placeholder="홍길동"
+                  value={userName}
+                  onChange={(e) => setUserName(e.target.value)}
+                  className="input"
+                  disabled={loading === "email"}
+                />
+              </div>
+              <div className="formGroup">
+                <label htmlFor="userPhone">전화번호 *</label>
+                <input
+                  id="userPhone"
+                  type="tel"
+                  placeholder="010-1234-5678"
+                  value={userPhone}
+                  onChange={(e) => setUserPhone(e.target.value)}
+                  className="input"
+                  disabled={loading === "email"}
+                />
+              </div>
+              <div className="formGroup">
+                <label htmlFor="userEmail">이메일 *</label>
+                <input
+                  id="userEmail"
+                  type="email"
+                  placeholder="example@email.com"
+                  value={userEmail}
+                  onChange={(e) => setUserEmail(e.target.value)}
+                  className="input"
+                  disabled={loading === "email"}
+                />
+              </div>
+              {error && <p className="error">{error}</p>}
+            </div>
+            <div className="modalFooter">
+              <button
+                className="btn btnSecondary"
+                onClick={() => setShowEmailModal(false)}
+                disabled={loading === "email"}
+              >
+                취소
+              </button>
+              <button
+                className="btn btnPrimary"
+                onClick={sendEmail}
+                disabled={loading === "email"}
+              >
+                {loading === "email" ? "전송 중..." : "전송"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
