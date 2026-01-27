@@ -216,6 +216,81 @@ button:disabled {
   justify-content: center;
 }
 
+/* 검색 기록 패널 */
+.historyPanel {
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid #334155;
+  border-radius: 14px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+}
+.historyPanel h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: #94a3b8;
+}
+.historyList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.historyItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.historyBtn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  padding: 0.7rem 1rem;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid #334155;
+  border-radius: 10px;
+  color: #e2e8f0;
+  text-align: left;
+  transition: all 0.2s;
+}
+.historyBtn:hover {
+  background: rgba(51, 65, 85, 0.4);
+  border-color: #475569;
+}
+.historyItem.active .historyBtn {
+  background: rgba(56, 189, 248, 0.1);
+  border-color: #38bdf8;
+}
+.historyKeyword {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #f1f5f9;
+}
+.historyTime {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+.historyDelete {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  color: #f87171;
+  font-size: 1rem;
+  transition: all 0.2s;
+}
+.historyDelete:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+}
+
 .footer {
   text-align: center;
   padding-top: 2rem;

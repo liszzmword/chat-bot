@@ -3,14 +3,28 @@
 import { useState, useCallback } from "react";
 import type { NewsItem, ChatMessage } from "@/lib/types";
 
+interface SearchHistory {
+  id: string;
+  keyword: string;
+  news: NewsItem[];
+  summary: string;
+  chatHistory: ChatMessage[];
+  timestamp: number;
+}
+
 export default function Home() {
   const [keyword, setKeyword] = useState("");
-  const [news, setNews] = useState<NewsItem[]>([]);
-  const [summary, setSummary] = useState("");
-  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
+  const [currentSearchId, setCurrentSearchId] = useState<string | null>(null);
   const [chatInput, setChatInput] = useState("");
   const [loading, setLoading] = useState<"idle" | "search" | "summarize" | "chat">("idle");
   const [error, setError] = useState("");
+
+  // 현재 선택된 검색 가져오기
+  const currentSearch = searchHistory.find((s) => s.id === currentSearchId);
+  const news = currentSearch?.news || [];
+  const summary = currentSearch?.summary || "";
+  const chatHistory = currentSearch?.chatHistory || [];
 
   const search = useCallback(async () => {
     const k = keyword.trim();
@@ -20,19 +34,20 @@ export default function Home() {
     }
     setError("");
     setLoading("search");
-    setNews([]);
-    setSummary("");
-    setChatHistory([]);
+    
+    const newId = Date.now().toString();
+    
     try {
       const r = await fetch(`/api/news?keyword=${encodeURIComponent(k)}`);
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || "뉴스 검색 실패");
-      setNews(j.news || []);
+      
       if ((j.news || []).length === 0) {
         setError("이 키워드로 검색된 뉴스가 없습니다. 다른 키워드를 시도해 보세요.");
         setLoading("idle");
         return;
       }
+      
       setLoading("summarize");
       const sr = await fetch("/api/summarize", {
         method: "POST",
@@ -41,7 +56,20 @@ export default function Home() {
       });
       const sj = await sr.json();
       if (!sr.ok) throw new Error(sj.error || "요약 실패");
-      setSummary(sj.summary || "");
+      
+      // 새 검색 기록 추가
+      const newSearch: SearchHistory = {
+        id: newId,
+        keyword: k,
+        news: j.news || [],
+        summary: sj.summary || "",
+        chatHistory: [],
+        timestamp: Date.now(),
+      };
+      
+      setSearchHistory((prev) => [newSearch, ...prev]);
+      setCurrentSearchId(newId);
+      setKeyword("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "오류가 발생했습니다.");
     } finally {
@@ -51,11 +79,20 @@ export default function Home() {
 
   const sendChat = useCallback(async () => {
     const m = chatInput.trim();
-    if (!m || loading === "chat") return;
+    if (!m || loading === "chat" || !currentSearchId) return;
     setError("");
-    setChatHistory((h) => [...h, { role: "user", content: m }]);
+    
+    // 현재 검색에 사용자 메시지 추가
+    setSearchHistory((prev) =>
+      prev.map((s) =>
+        s.id === currentSearchId
+          ? { ...s, chatHistory: [...s.chatHistory, { role: "user" as const, content: m }] }
+          : s
+      )
+    );
     setChatInput("");
     setLoading("chat");
+    
     try {
       const r = await fetch("/api/chat", {
         method: "POST",
@@ -69,14 +106,36 @@ export default function Home() {
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || "챗 실패");
-      setChatHistory((h) => [...h, { role: "assistant", content: j.reply }]);
+      
+      // 챗봇 응답 추가
+      setSearchHistory((prev) =>
+        prev.map((s) =>
+          s.id === currentSearchId
+            ? { ...s, chatHistory: [...s.chatHistory, { role: "assistant" as const, content: j.reply }] }
+            : s
+        )
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "챗 오류");
-      setChatHistory((h) => h.slice(0, -1));
+      // 에러 시 사용자 메시지 제거
+      setSearchHistory((prev) =>
+        prev.map((s) =>
+          s.id === currentSearchId
+            ? { ...s, chatHistory: s.chatHistory.slice(0, -1) }
+            : s
+        )
+      );
     } finally {
       setLoading("idle");
     }
-  }, [chatInput, loading, news, summary, chatHistory]);
+  }, [chatInput, loading, currentSearchId, news, summary, chatHistory]);
+  
+  const deleteSearch = useCallback((id: string) => {
+    setSearchHistory((prev) => prev.filter((s) => s.id !== id));
+    if (currentSearchId === id) {
+      setCurrentSearchId(null);
+    }
+  }, [currentSearchId]);
 
   return (
     <main className="container">
@@ -84,6 +143,42 @@ export default function Home() {
         <h1>뉴스 챗봇</h1>
         <p>키워드를 입력하면 Google 뉴스를 검색하고, AI가 요약한 뒤 뉴스 기반으로 대화할 수 있습니다.</p>
       </header>
+
+      {searchHistory.length > 0 && (
+        <aside className="historyPanel">
+          <h3>📚 검색 기록 ({searchHistory.length})</h3>
+          <ul className="historyList">
+            {searchHistory.map((search) => (
+              <li
+                key={search.id}
+                className={`historyItem ${currentSearchId === search.id ? "active" : ""}`}
+              >
+                <button
+                  onClick={() => setCurrentSearchId(search.id)}
+                  className="historyBtn"
+                >
+                  <span className="historyKeyword">{search.keyword}</span>
+                  <span className="historyTime">
+                    {new Date(search.timestamp).toLocaleString("ko-KR", {
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                </button>
+                <button
+                  onClick={() => deleteSearch(search.id)}
+                  className="historyDelete"
+                  title="삭제"
+                >
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+        </aside>
+      )}
 
       <section className="search">
         <div className="searchRow">
