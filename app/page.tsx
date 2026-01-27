@@ -140,6 +140,7 @@ export default function Home() {
   const shareViaEmail = useCallback(() => {
     if (!currentSearch) return;
     
+    const recipientEmail = "liszzmword@gmail.com";
     const subject = encodeURIComponent(`[뉴스 요약] ${currentSearch.keyword}`);
     const newsLinks = currentSearch.news
       .map((n, i) => `${i + 1}. ${n.title}\n   ${n.link}`)
@@ -152,7 +153,7 @@ export default function Home() {
       `---\n뉴스 챗봇으로 생성됨`
     );
     
-    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    window.location.href = `mailto:${recipientEmail}?subject=${subject}&body=${body}`;
   }, [currentSearch]);
 
   const copyToClipboard = useCallback(async () => {
