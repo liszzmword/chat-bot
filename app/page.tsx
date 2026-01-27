@@ -137,6 +137,45 @@ export default function Home() {
     }
   }, [currentSearchId]);
 
+  const shareViaEmail = useCallback(() => {
+    if (!currentSearch) return;
+    
+    const subject = encodeURIComponent(`[뉴스 요약] ${currentSearch.keyword}`);
+    const newsLinks = currentSearch.news
+      .map((n, i) => `${i + 1}. ${n.title}\n   ${n.link}`)
+      .join("\n\n");
+    
+    const body = encodeURIComponent(
+      `키워드: ${currentSearch.keyword}\n\n` +
+      `=== AI 요약 ===\n${currentSearch.summary}\n\n` +
+      `=== 뉴스 목록 (${currentSearch.news.length}건) ===\n${newsLinks}\n\n` +
+      `---\n뉴스 챗봇으로 생성됨`
+    );
+    
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+  }, [currentSearch]);
+
+  const copyToClipboard = useCallback(async () => {
+    if (!currentSearch) return;
+    
+    const newsLinks = currentSearch.news
+      .map((n, i) => `${i + 1}. ${n.title}\n   ${n.link}`)
+      .join("\n\n");
+    
+    const text =
+      `키워드: ${currentSearch.keyword}\n\n` +
+      `=== AI 요약 ===\n${currentSearch.summary}\n\n` +
+      `=== 뉴스 목록 (${currentSearch.news.length}건) ===\n${newsLinks}\n\n` +
+      `---\n뉴스 챗봇으로 생성됨`;
+    
+    try {
+      await navigator.clipboard.writeText(text);
+      alert("클립보드에 복사되었습니다!");
+    } catch (err) {
+      alert("복사 실패: " + (err instanceof Error ? err.message : "알 수 없는 오류"));
+    }
+  }, [currentSearch]);
+
   return (
     <main className="container">
       <header className="header">
@@ -220,7 +259,25 @@ export default function Home() {
 
           {summary && (
             <section className="section summarySection">
-              <h2>📋 AI 요약</h2>
+              <div className="summaryHeader">
+                <h2>📋 AI 요약</h2>
+                <div className="shareButtons">
+                  <button
+                    onClick={shareViaEmail}
+                    className="btn btnShare"
+                    title="이메일로 공유"
+                  >
+                    ✉️ 이메일
+                  </button>
+                  <button
+                    onClick={copyToClipboard}
+                    className="btn btnShare"
+                    title="클립보드에 복사"
+                  >
+                    📋 복사
+                  </button>
+                </div>
+              </div>
               <p className="summary">{summary}</p>
             </section>
           )}
