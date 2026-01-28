@@ -76,6 +76,20 @@ export default function Home() {
       setSearchHistory((prev) => [newSearch, ...prev]);
       setCurrentSearchId(newId);
       setKeyword("");
+      
+      // Supabase DB에 저장 (백그라운드)
+      fetch("/api/save-to-db", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          keyword: k,
+          news: j.news,
+          summary: sj.summary,
+        }),
+      }).catch((err) => {
+        console.error("DB 저장 실패:", err);
+        // DB 저장 실패해도 앱은 계속 동작
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "오류가 발생했습니다.");
     } finally {
