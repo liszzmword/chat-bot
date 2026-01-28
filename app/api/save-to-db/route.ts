@@ -6,6 +6,7 @@ interface SaveRequest {
   keyword: string;
   news: NewsItem[];
   summary: string;
+  userId?: string; // 로그인한 사용자 UUID
   userName?: string;
   userEmail?: string;
   userPhone?: string;
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { keyword, news, summary, userName, userEmail, userPhone } = body;
+  const { keyword, news, summary, userId, userName, userEmail, userPhone } = body;
 
   if (!keyword || !news || news.length === 0 || !summary) {
     return NextResponse.json(
@@ -39,6 +40,7 @@ export async function POST(request: NextRequest) {
       .from("searches")
       .insert({
         keyword,
+        user_uuid: userId || null,
         user_name: userName || null,
         user_email: userEmail || null,
         user_phone: userPhone || null,

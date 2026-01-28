@@ -2,6 +2,8 @@
 
 import { useState, useCallback } from "react";
 import type { NewsItem, ChatMessage } from "@/lib/types";
+import { useAuth } from "@/lib/auth-context";
+import AuthModal from "@/components/AuthModal";
 
 interface SearchHistory {
   id: string;
@@ -13,6 +15,8 @@ interface SearchHistory {
 }
 
 export default function Home() {
+  const { user, loading: authLoading, logout } = useAuth();
+  
   const [keyword, setKeyword] = useState("");
   const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
   const [currentSearchId, setCurrentSearchId] = useState<string | null>(null);
@@ -77,19 +81,22 @@ export default function Home() {
       setCurrentSearchId(newId);
       setKeyword("");
       
-      // Supabase DB에 저장 (백그라운드)
-      fetch("/api/save-to-db", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          keyword: k,
-          news: j.news,
-          summary: sj.summary,
-        }),
-      }).catch((err) => {
-        console.error("DB 저장 실패:", err);
-        // DB 저장 실패해도 앱은 계속 동작
-      });
+      // Supabase DB에 저장 (백그라운드, 사용자 정보 포함)
+      if (user) {
+        fetch("/api/save-to-db", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            keyword: k,
+            news: j.news,
+            summary: sj.summary,
+            userId: user.id,
+          }),
+        }).catch((err) => {
+          console.error("DB 저장 실패:", err);
+          // DB 저장 실패해도 앱은 계속 동작
+        });
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "오류가 발생했습니다.");
     } finally {
@@ -222,11 +229,41 @@ export default function Home() {
     }
   }, [currentSearch]);
 
+  // 로그인하지 않은 경우 인증 모달 표시
+  if (authLoading) {
+    return (
+      <main className="container">
+        <div className="loading">로딩 중...</div>
+      </main>
+    );
+  }
+
+  if (!user) {
+    return (
+      <main className="container">
+        <AuthModal />
+      </main>
+    );
+  }
+
   return (
     <main className="container">
       <header className="header">
-        <h1>뉴스 챗봇</h1>
-        <p>키워드를 입력하면 Google 뉴스를 검색하고, AI가 요약한 뒤 뉴스 기반으로 대화할 수 있습니다.</p>
+        <div className="headerTop">
+          <div>
+            <h1>뉴스 챗봇</h1>
+            <p>키워드를 입력하면 Google 뉴스를 검색하고, AI가 요약한 뒤 뉴스 기반으로 대화할 수 있습니다.</p>
+          </div>
+          <div className="userInfo">
+            <span className="username">
+              {user.is_admin && "👑 "}
+              {user.username}님
+            </span>
+            <button onClick={logout} className="btn btnSecondary btnSmall">
+              로그아웃
+            </button>
+          </div>
+        </div>
       </header>
 
       {searchHistory.length > 0 && (
